@@ -1,0 +1,16 @@
+
+if TARGET_LAN969X
+
+config SYS_BOARD
+	default "lan969x"
+
+config SYS_VENDOR
+	default "microchip"
+
+config SYS_SOC
+	default "lan969x"
+
+config SYS_CONFIG_NAME
+	default "lan969x"
+
+endif

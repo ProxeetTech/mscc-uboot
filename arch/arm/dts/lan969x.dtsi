@@ -1,0 +1,216 @@
+#include "skeleton.dtsi"
+#include <dt-bindings/clk/mchp,lan969x.h>
+
+/ {
+	chosen {
+		u-boot,dm-pre-reloc;
+		stdout-path = &uart0;
+	};
+
+	config {
+		u-boot,mmc-env-offset		= <0x10100000>;
+		u-boot,mmc-env-offset-redundant = <0x10300000>;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53", "arm,armv8";
+			reg = <0>;
+			enable-method = "psci";
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
+	};
+
+	ahb {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		u-boot,dm-pre-reloc;
+
+		apb {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			u-boot,dm-pre-reloc;
+
+			gpio: pinctrl@e20100d4 {
+				compatible = "mchp,lan969x-pinctrl";
+				reg = <0xe20100d4 0xd4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&gpio 0 0 66>;
+
+				fc0_pins: fc0_uart_pins {
+					pins = "GPIO_3", "GPIO_4";
+					function = "fc";
+				};
+
+				fc1_pins: fc1_uart_pins {
+					pins = "GPIO_28", "GPIO_29";
+					function = "fc";
+				};
+
+				fc2_pins: fc2_uart_pins {
+					pins = "GPIO_65", "GPIO_66";
+					function = "fc";
+				};
+
+				fc3_pins: fc3_uart_pins {
+					pins = "GPIO_55", "GPIO_56";
+					function = "fc";
+				};
+
+				emmc_sd_pins: emmc-sd-pins {
+					/* eMMC_SD - CMD, CLK, D0, D1, D2, D3, D4, D5, D6, D7, RSTN */
+					pins = "GPIO_14", "GPIO_15", "GPIO_16", "GPIO_17",
+						"GPIO_18", "GPIO_19", "GPIO_20", "GPIO_21",
+						"GPIO_22", "GPIO_23", "GPIO_24";
+					function = "emmc_sd";
+				};
+			};
+
+			uart0: serial@e0040200 {
+				u-boot,dm-pre-reloc;
+				compatible = "atmel,at91sam9260-usart";
+				reg = <0xE0040200 0x108>;
+				clocks = <&fabric_clk>;
+				clock-names = "usart";
+				status = "disabled";
+			};
+
+			sdhci0: sdhci-host@e0830000 {
+				u-boot,dm-pre-reloc;
+				compatible = "microchip,lan969x-sdhci";
+				reg = <0xE0830000 0x00000300>;
+				clocks = <&clks CLK_ID_SDMMC0>, <&clks CLK_ID_SDMMC0>;
+				clock-names = "hclock", "multclk";
+				bus-width = <4>;
+				status = "disabled";
+			};
+
+			emmc: emmc@e0830000 {
+				u-boot,dm-pre-reloc;
+				compatible = "microchip,lan969x-sdhci";
+				reg = <0xE0830000 0x00000300>;
+				bus-width = <4>;
+				clocks = <&clks CLK_ID_SDMMC0>, <&clks CLK_ID_SDMMC0>;
+				clock-names = "hclock", "multclk";
+				status = "disabled";
+			};
+
+			qspi: qspi@e0834000 {
+				u-boot,dm-pre-reloc;
+				compatible = "microchip,lan969x-qspi";
+				reg = <0xE0804000 0x00000100>,
+				      <0x20000000 0x08000000>,
+				      <0xe2010418 0x00000018>;
+				reg-names = "qspi_base", "qspi_mmap", "qspi_pads";
+				clocks =  <&fabric_clk>, <&clks CLK_ID_QSPI0>;
+				clock-names = "pclk", "gclk";
+				assigned-clocks = <&clks CLK_ID_QSPI0>;
+				assigned-clock-rates = <100000000>;
+				spi-max-frequency = <100000000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			switch: switch@0 {
+				compatible = "microchip,lan969x-switch";
+				reg = <0xe2900000 0x100000>, // ANA_AC
+				      <0xe2400000 0x100000>, // ANA_CL
+				      <0xe2800000 0x100000>, // ANA_L2
+				      <0xe2480000 0x100000>, // ANA_L3
+				      <0xe3200000 0x10000>,  // ASM
+				      <0xe2060000 0x10000>,  // LRN
+				      <0xe20b0000 0x10000>,  // QFWD
+				      <0xe2030000 0x20000>,  // DEVCPU_QS
+				      <0xe20a0000 0x10000>,  // QSYS
+				      <0xe2600000 0x80000>,  // REW
+				      <0xe2a00000 0x80000>,  // VOP
+				      <0xe30ec000 0x80000>,  // DSM
+				      <0xe22c0000 0x80000>,  // EACL
+				      <0xe2080000 0x80000>,  // VCAP_SUPER
+				      <0xe2580000 0x80000>,  // HSCH
+				      <0xe30f0000 0x10000>,  // PORT_CONF
+				      <0xe20c0000 0x10000>,  // XQS
+				      <0xe3408000 0x10000>,  // HSIO
+				      <0xe2010000 0x10000>,  // GCB
+				      <0xe00c0000 0x10000>,  // CPU
+				      <0xe2040000 0x10000>,  // PTP
+				      <0xe3004000 0x4000>,   // DEV2G5_0
+				      <0xe3010000 0x4000>,   // DEV2G5_1
+				      <0xe3014000 0x4000>,   // DEV2G5_2
+				      <0xe3018000 0x4000>,   // DEV2G5_3
+				      <0xe301c000 0x4000>,   // DEV2G5_4
+				      <0xe3028000 0x4000>,   // DEV2G5_5
+				      <0xe302c000 0x4000>,   // DEV2G5_6
+				      <0xe3030000 0x4000>,   // DEV2G5_7
+				      <0xe3034000 0x4000>,   // DEV2G5_8
+				      <0xe3040000 0x4000>,   // DEV2G5_9
+				      <0xe304c000 0x4000>,   // DEV2G5_10
+				      <0xe3050000 0x4000>,   // DEV2G5_11
+				      <0xe3054000 0x4000>,   // DEV2G5_12
+				      <0xe3060000 0x4000>,   // DEV2G5_13
+				      <0xe306c000 0x4000>,   // DEV2G5_14
+				      <0xe3070000 0x4000>,   // DEV2G5_15
+				      <0xe3074000 0x4000>,   // DEV2G5_16
+				      <0xe3080000 0x4000>,   // DEV2G5_17
+				      <0xe308c000 0x4000>,   // DEV2G5_18
+				      <0xe3090000 0x4000>,   // DEV2G5_19
+				      <0xe3094000 0x4000>,   // DEV2G5_20
+				      <0xe30a0000 0x4000>,   // DEV2G5_21
+				      <0xe30ac000 0x4000>,   // DEV2G5_22
+				      <0xe30b0000 0x4000>,   // DEV2G5_23
+				      <0xe30b4000 0x4000>,   // DEV2G5_24
+				      <0xe30c0000 0x4000>,   // DEV2G5_25
+				      <0xe30cc000 0x4000>,   // DEV2G5_26
+				      <0xe30d8000 0x4000>,   // DEV2G5_27
+				      <0xe30e4000 0x4000>,   // DEV2G5_28 (RGMII)
+				      <0xe30e8000 0x4000>;   // DEV2G5_29 (RGMII)
+				reg-names =
+				      "ana_ac", "ana_cl", "ana_l2", "ana_l3",
+				      "asm", "lrn", "qfwd", "qs",
+				      "qsys", "rew", "vop", "dsm",
+				      "eacl", "vcap_super", "hsch", "port_conf", "xqs",
+				      "hsio", "gcb", "cpu", "ptp",
+				      "port0", "port1", "port2", "port3",
+				      "port4", "port5", "port6", "port7", "port8",
+				      "port9", "port10", "port11", "port12", "port13",
+				      "port14", "port15", "port16", "port17", "port18",
+				      "port19", "port20", "port21", "port22", "port23",
+				      "port24", "port25", "port26", "port27", "port28",
+				      "port29";
+
+				status = "disabled";
+				ethernet-ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+				};
+			};
+
+			mdio0: mdio@e20101a8 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "mscc,sparx5-miim";
+				reg = <0xe20101a8 0x24>;
+				status = "disabled";
+			};
+
+			mdio1: mdio@e20101cc {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "mscc,sparx5-miim";
+				reg = <0xe20101cc 0x24>;
+				status = "disabled";
+			};
+		};
+	};
+};

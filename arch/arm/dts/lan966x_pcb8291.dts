@@ -1,0 +1,73 @@
+/dts-v1/;
+#include "lan966x.dtsi"
+
+/ {
+	model = "lan966x_pcb8291";
+
+	chosen {
+		stdout-path = &uart3;
+	};
+
+	ahb {
+		apb {
+			uart3: serial@e0064200 {
+				status = "okay";
+				u-boot,dm-pre-reloc;
+			};
+
+			uart0: serial@e0040200 {
+				status = "okay";
+				u-boot,dm-pre-reloc;
+			};
+
+			sdhci0: sdhci-host@e0830000 {
+				status = "okay";
+			};
+
+			emmc: emmc@e0830000 {
+				status = "okay";
+			};
+
+			qspi: qspi@e0834000 {
+				status = "okay";
+
+				spi-flash@0 {
+					status = "okay";
+					compatible = "jedec,spi-nor";
+					reg = <0>;
+					spi-max-frequency = <20000000>;
+					u-boot,dm-pre-reloc;
+				};
+			};
+
+			lan966x_mdio1: mdio@413c {
+				status = "okay";
+
+				phy0: ethernet-phy@0 {
+					reg = <1>;
+				};
+				phy1: ethernet-phy@1 {
+					reg = <2>;
+				};
+			};
+
+			lan966x_switch: switch@0 {
+				status = "okay";
+
+				ethernet-ports {
+					port0: port@0 {
+						reg = <0>;
+						phy-handle = <&phy0>;
+						phy-mode = "gmii";
+					};
+
+					port1: port@1 {
+						reg = <1>;
+						phy-handle = <&phy1>;
+						phy-mode = "gmii";
+					};
+				};
+			};
+		};
+	};
+};

@@ -1,0 +1,66 @@
+/dts-v1/;
+
+#include "lan969x_a0.dtsi"
+#include "lan969x.dtsi"
+
+#include <dt-bindings/mscc/sparx5_data.h>
+
+/ {
+	model = "lan969x pcb1001 (svb)";
+	config {
+		u-boot,mmc-env-partition = "Env";
+	};
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-0 = <&fc0_pins>;
+	pinctrl-names = "default";
+};
+
+&sdhci0 {
+	status = "okay";
+};
+
+&emmc {
+	status = "okay";
+	pinctrl-0 = <&emmc_sd_pins>;
+	pinctrl-names = "default";
+	bus-width = <8>;
+};
+
+&qspi {
+	status = "okay";
+	spi-flash@0 {
+		status = "okay";
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <104000000>;
+		u-boot,dm-pre-reloc;
+		m25p,fast-read;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+	};
+};
+
+&gpio {
+	mdio_pins: mdio-pins {
+		pins = "GPIO_9", "GPIO_10";
+		function = "miim";
+	};
+};
+
+&mdio0 {
+	pinctrl-0 = <&mdio_pins>;
+	pinctrl-names = "default";
+};
+
+&switch {
+	status = "okay";
+	ethernet-ports {
+		port24: port@24 {
+			reg = <24>;
+			phys = <IF_SGMII_CISCO FA_SERDES_TYPE_10G 6>;
+		};
+	};
+};

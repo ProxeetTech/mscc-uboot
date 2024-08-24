@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2018 Microsemi Corporation
+ */
+
+/dts-v1/;
+#include "mscc,sparx5_pcb135.dtsi"
+#include "mscc,sparx5_nand.dtsi"
+
+/ {
+	model = "Sparx5 PCB135/NAND Reference Board";
+	compatible = "mscc,sparx5-pcb135", "mscc,sparx5";
+};

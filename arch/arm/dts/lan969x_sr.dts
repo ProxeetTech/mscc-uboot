@@ -1,0 +1,43 @@
+/dts-v1/;
+
+#include "lan969x_sr.dtsi"
+#include "lan969x.dtsi"
+
+/ {
+	model = "lan969x Sunrise FPGA board";
+	config {
+		u-boot,mmc-env-partition = "Env";
+	};
+};
+
+&qspi {
+	compatible = "microchip,sunrise-qspi";
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-0 = <&fc0_pins>;
+	pinctrl-names = "default";
+};
+
+&sdhci0 {
+	status = "okay";
+};
+
+&emmc {
+	status = "okay";
+	pinctrl-0 = <&emmc_sd_pins>;
+	pinctrl-names = "default";
+	max-frequency = <24000000>;	/* Sunrise limitation */
+};
+
+&qspi {
+	status = "okay";
+	spi-flash@0 {
+		status = "okay";
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <104000000>;
+		u-boot,dm-pre-reloc;
+	};
+};

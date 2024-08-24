@@ -1,0 +1,29 @@
+if TARGET_LAN966X
+
+config SYS_BOARD
+	default "lan966x"
+
+config SYS_VENDOR
+	default "microchip"
+
+config SYS_SOC
+	default "lan966x"
+
+config SYS_CONFIG_NAME
+	default "lan966x"
+
+choice
+	prompt "Choose lan966x target"
+	default TARGET_LAN966X_EVB
+	help
+	  Select the board type.
+
+config TARGET_LAN966X_EVB
+	bool "Select EVB board"
+
+config TARGET_LAN966X_SVB
+	bool "Select SVB board"
+
+endchoice
+
+endif

@@ -1,0 +1,27 @@
+/*
+ * Clock definitions for lan969x asic
+ */
+
+/ {
+	cpu_clk: cpu_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <1000000000>;
+		u-boot,dm-pre-reloc;
+	};
+
+	fabric_clk: fabric_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <250000000>;
+		u-boot,dm-pre-reloc;
+	};
+
+	clks: clocks@e00c00b4 {
+		compatible = "mchp,lan969x-clk";
+		reg = <0xe00c00b4 30>;
+		#clock-cells = <1>;
+		clocks = <&cpu_clk>;
+		u-boot,dm-pre-reloc;
+	};
+};

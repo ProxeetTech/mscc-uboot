@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+if TARGET_SPARX5
+
+config SYS_BOARD
+	default "sparx5"
+
+config SYS_VENDOR
+	default "mscc"
+
+config SYS_SOC
+	default "sparx5"
+
+config SYS_CONFIG_NAME
+	default "sparx5"
+
+config TEXT_BASE
+	default 0x35000000
+
+endif

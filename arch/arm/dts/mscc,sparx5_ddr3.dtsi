@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (C) 2022 Microchip Technology Inc. and its subsidiaries.
+ *
+ */
+
+&ddr {
+	microchip,mem-name = "pcb135_ddr3 2023-07-21-13:44:16 98ff2c264618";
+	microchip,mem-speed = <1667>;
+	microchip,mem-size = <0x80000000>;
+	microchip,mem-bus-width = <32>;
+
+	microchip,main-reg = <
+		0x00001000	/* crcparctl1 */
+		0x00000001	/* dbictl */
+		0x00000000	/* dfimisc */
+		0x03898207	/* dfitmg0 */
+		0x00040201	/* dfitmg1 */
+		0x40400003	/* dfiupd0 */
+		0x004000ff	/* dfiupd1 */
+		0x00000004	/* ecccfg0 */
+		0x00020196	/* init0 */
+		0x00a20000	/* init1 */
+		0x11140004	/* init3 */
+		0x00200000	/* init4 */
+		0x000b0004	/* init5 */
+		0x00000000	/* init6 */
+		0x00000000	/* init7 */
+		0x01040001	/* mstr */
+		0x00000000	/* pccfg */
+		0x00000000	/* pwrctl */
+		0x00210020	/* rfshctl0 */
+		0x00000000	/* rfshctl3 */
+		0x0000ff10	/* sbrctl */
+	>;
+
+	microchip,timing-reg = <
+		0x0e0c1010	/* dramtmg0 */
+		0x00030417	/* dramtmg1 */
+		0x00000010	/* dramtmg12 */
+		0x0305050b	/* dramtmg2 */
+		0x0050400c	/* dramtmg3 */
+		0x07020307	/* dramtmg4 */
+		0x05050303	/* dramtmg5 */
+		0x03030804	/* dramtmg8 */
+		0x0004040d	/* dramtmg9 */
+		0x06000610	/* odtcfg */
+		0x0062007a	/* rfshtmg */
+	>;
+
+	microchip,mapping-reg = <
+		0x0000001f	/* addrmap0 */
+		0x00181818	/* addrmap1 */
+		0x00000000	/* addrmap2 */
+		0x00000000	/* addrmap3 */
+		0x00001f1f	/* addrmap4 */
+		0x04040404	/* addrmap5 */
+		0x04040404	/* addrmap6 */
+		0x00000f0f	/* addrmap7 */
+		0x00003f3f	/* addrmap8 */
+	>;
+
+	microchip,phy-reg = <
+		0x0000040b	/* dcr */
+		0x0064401b	/* dsgcr */
+		0x8000b0cf	/* dtcr0 */
+		0x00010237	/* dtcr1 */
+		0x00c01884	/* dxccr */
+		0x00000caa	/* pgcr2 */
+		0x00000000	/* schcr1 */
+		0x0007bb09	/* zq0pr */
+		0x0007bb2d	/* zq1pr */
+		0x0007bb2d	/* zq2pr */
+		0x04058e00	/* zqcr */
+	>;
+
+	microchip,phy_timing-reg = <
+		0x05200d08	/* dtpr0 */
+		0x28180304	/* dtpr1 */
+		0x000600fd	/* dtpr2 */
+		0x02000101	/* dtpr3 */
+		0x00f30817	/* dtpr4 */
+		0x002d0d08	/* dtpr5 */
+		0x3421a0d0	/* ptr0 */
+		0x51618ea6	/* ptr1 */
+		0x00083def	/* ptr2 */
+		0x0fd65800	/* ptr3 */
+		0x095a8800	/* ptr4 */
+	>;
+
+};

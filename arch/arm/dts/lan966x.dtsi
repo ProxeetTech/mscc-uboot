@@ -1,0 +1,211 @@
+#include "skeleton.dtsi"
+
+#include <dt-bindings/soc/lan966x_dt_int_cpu.h>
+#include <dt-bindings/clk/mchp,lan966x.h>
+
+/ {
+	model = "lan966x";
+	compatible = "microchip,lan966x";
+
+	config {
+		u-boot,mmc-env-offset		= <0x10008000>;
+		u-boot,mmc-env-offset-redundant = <0x10208000>;
+	};
+
+	lan966x_clk: lan966x_clk@e00c00a8 {
+		compatible = "mchp,lan966x-clk";
+		reg = <0xe00c00a8 0x38>;
+		#clock-cells = <1>;
+		u-boot,dm-pre-reloc;
+	};
+
+	fabric_clk: fabric_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <200000000>;
+		u-boot,dm-pre-reloc;
+	};
+
+	ahb {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		apb {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			gpio: pinctrl@e0000000 {
+				compatible = "mchp,lan966x-pinctrl";
+				reg = <GCB_GPIO_ADDR GCB_GPIO_SIZE>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&gpio 0 0 78>;
+				u-boot,dm-pre-reloc;
+
+				fc3_b_pins: fc3_uart_pins {
+					pins = "GPIO_51", "GPIO_52", "GPIO_53";
+					function = "fc3_b";
+					u-boot,dm-pre-reloc;
+				};
+
+				fc0_b_pins: fc0_uart_pins {
+					pins = "GPIO_24", "GPIO_25", "GPIO_26";
+					function = "fc0_b";
+				};
+
+				emmc_sd_pins: emmc-sd-pins {
+					/* eMMC_SD - CMD, CLK, D0, D1, D2, D3, RSTN */
+					pins = "GPIO_67", "GPIO_68", "GPIO_69", "GPIO_70",
+						"GPIO_71", "GPIO_72", "GPIO_77";
+					function = "emmc_sd";
+				};
+
+				emmc_pins: emmc-pins {
+					/* eMMC - D4, D5, D6, D7 */
+					pins = "GPIO_73", "GPIO_74", "GPIO_75", "GPIO_76";
+					function = "emmc";
+				};
+
+				miim_a_pins: mdio_pins {
+					/* MDC, MDIO*/
+					pins =  "GPIO_28", "GPIO_29";
+					function = "miim_a";
+				};
+			};
+
+			uart0: serial@e0040200 {
+				compatible = "atmel,at91sam9260-usart";
+				reg = <FLEXCOM_0_FLEXCOM_USART_REG_ADDR FLEXCOM_0_FLEXCOM_USART_REG_SIZE>;
+				clocks = <&fabric_clk>;
+				clock-names = "usart";
+				pinctrl-0 = <&fc0_b_pins>;
+				pinctrl-names = "default";
+				status = "disabled";
+			};
+
+			uart3: serial@e0064200 {
+				compatible = "atmel,at91sam9260-usart";
+				reg = <FLEXCOM_3_FLEXCOM_USART_REG_ADDR FLEXCOM_3_FLEXCOM_USART_REG_SIZE>;
+				clocks = <&fabric_clk>;
+				clock-names = "usart";
+				pinctrl-0 = <&fc3_b_pins>;
+				pinctrl-names = "default";
+				status = "disabled";
+			};
+
+			usb_uart0: serial@e0808000 {
+				compatible = "mchp,lan966x-uart";
+				reg = <0xe0808000 0x400>, <0x00200000 0x80000>;
+				status = "disabled";
+			};
+
+			sdhci0: sdhci-host@e0830000 {
+				compatible = "microchip,lan966x-sdhci";
+				reg = <SDMMC_SDMMC_REG_ADDR SDMMC_SDMMC_REG_SIZE>;
+				clocks = <&lan966x_clk GCK_ID_SDMMC0>, <&lan966x_clk GCK_ID_SDMMC0>;
+				clock-names = "hclock", "multclk";
+				assigned-clocks = <&lan966x_clk GCK_ID_SDMMC0>, <&lan966x_clk GCK_ID_SDMMC0>;
+				assigned-clock-rates = <30000000>;
+				bus-width = <4>;
+				status = "disabled";
+			};
+
+			emmc: emmc@e0830000 {
+				compatible = "microchip,lan966x-sdhci";
+				reg = <SDMMC_SDMMC_REG_ADDR SDMMC_SDMMC_REG_SIZE>;
+				clocks = <&lan966x_clk GCK_ID_SDMMC0>, <&lan966x_clk GCK_ID_SDMMC0>;
+				clock-names = "hclock", "multclk";
+				assigned-clocks = <&lan966x_clk GCK_ID_SDMMC0>, <&lan966x_clk GCK_ID_SDMMC0>;
+				assigned-clock-rates = <30000000>;
+				bus-width = <4>;
+				pinctrl-0 = <&emmc_sd_pins>, <&emmc_pins>;
+				pinctrl-names = "default";
+				status = "disabled";
+			};
+
+			qspi: qspi@e0834000 {
+				compatible = "microchip,lan966x-qspi";
+				reg = <QSPI_0_ADDR QSPI_0_SIZE>, <0x20000000 0x08000000>;
+				reg-names = "qspi_base", "qspi_mmap";
+				clocks =  <&fabric_clk>, <&lan966x_clk GCK_ID_QSPI0>;
+				clock-names = "pclk", "gclk";
+				assigned-clocks = <&lan966x_clk GCK_ID_QSPI0>;
+				assigned-clock-rates = <20000000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			lan966x_mdio0: mdio@4118 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "mscc,ocelot-miim";
+				reg = <GCB_MIIM_0_ADDR GCB_MIIM_0_SIZE>;
+			};
+
+			lan966x_mdio1: mdio@413c {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "mscc,ocelot-miim";
+				reg = <GCB_MIIM_1_ADDR GCB_MIIM_1_SIZE>;
+			};
+
+			hsio: syscon@710d0000 {
+				compatible = "microchip,lan966x-hsio", "syscon", "simple-mfd";
+				reg = <HSIO_ADDR HSIO_SIZE>;
+
+				serdes: serdes {
+					compatible = "microchip,lan966x-serdes";
+					#phy-cells = <1>;
+				};
+			};
+
+			lan966x_switch: switch@0 {
+				compatible = "mchp,lan966x-switch";
+				reg = <ORG_0_ADDR ORG_0_SIZE>,
+				      <SYS_ADDR SYS_SIZE>,
+				      <QS_ADDR QS_SIZE>,
+				      <QSYS_ADDR QSYS_SIZE>,
+
+				      <ANA_ADDR ANA_SIZE>,
+				      <REW_ADDR REW_SIZE>,
+				      <GCB_ADDR 0x64>,
+				      <PTP_ADDR PTP_SIZE>,
+
+				      <VCAP_0_ADDR VCAP_0_SIZE>,
+				      <VCAP_1_ADDR VCAP_1_SIZE>,
+				      <VCAP_2_ADDR VCAP_2_SIZE>,
+				      <AFI_ADDR AFI_SIZE>,
+				      <MEP_ADDR MEP_SIZE>,
+
+				      <CPU_ADDR CPU_SIZE>,
+				      <FDMA_ADDR FDMA_SIZE>,
+				      <CHIP_TOP_ADDR CHIP_TOP_SIZE>,
+				      <HSIO_ADDR HSIO_SIZE>,
+
+				      <DEV_0_ADDR DEV_0_SIZE>,
+				      <DEV_1_ADDR DEV_1_SIZE>,
+				      <DEV_2_ADDR DEV_2_SIZE>,
+				      <DEV_3_ADDR DEV_3_SIZE>,
+				      <DEV_4_ADDR DEV_4_SIZE>,
+				      <DEV_5_ADDR DEV_5_SIZE>,
+				      <DEV_6_ADDR DEV_6_SIZE>,
+				      <DEV_7_ADDR DEV_7_SIZE>;
+
+				reg-names = "org", "sys", "qs", "qsys",
+					    "ana", "rew", "gcb", "ptp",
+					    "es0", "s1", "s2", "afi", "mep",
+					    "cpu", "fdma", "chip_top", "hsio",
+					    "port0", "port1", "port2", "port3",
+					    "port4", "port5", "port6", "port7";
+
+				ethernet-ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+				};
+			};
+		};
+	};
+};
