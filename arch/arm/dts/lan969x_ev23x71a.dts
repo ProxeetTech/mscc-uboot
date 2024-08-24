@@ -6,60 +6,98 @@
 #include <dt-bindings/mscc/sparx5_data.h>
 
 / {
-	model = "lan969x ev23x71a (pcb8398)";
+  model = "lan969x ev23x71a (pcb8398)";
 };
 
 &uart0 {
-	status = "okay";
-	pinctrl-0 = <&fc0_pins>;
-	pinctrl-names = "default";
+  status = "okay";
+  pinctrl-0 = <&fc0_pins>;
+  pinctrl-names = "default";
 };
 
 &emmc {
-	status = "okay";
-	pinctrl-0 = <&emmc_sd_pins>;
-	pinctrl-names = "default";
-	bus-width = <8>;
+  status = "okay";
+  pinctrl-0 = <&emmc_sd_pins>;
+  pinctrl-names = "default";
+  bus-width = <8>;
 };
 
 &qspi {
-	status = "okay";
-	spi-flash@0 {
-		status = "okay";
-		compatible = "jedec,spi-nor";
-		reg = <0>;
-		spi-max-frequency = <104000000>;
-		u-boot,dm-pre-reloc;
-		m25p,fast-read;
-		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <4>;
-	};
+  status = "okay";
+  spi-flash@0 {
+    status = "okay";
+    compatible = "jedec,spi-nor";
+    reg = <0>;
+    spi-max-frequency = <104000000>;
+    u-boot,dm-pre-reloc;
+    m25p,fast-read;
+    spi-tx-bus-width = <1>;
+    spi-rx-bus-width = <4>;
+  };
 };
 
 &gpio {
-	mdio_pins: mdio-pins {
-		pins = "GPIO_9", "GPIO_10";
-		function = "miim";
-	};
+  mdio_pins: mdio-pins {
+    pins = "GPIO_9", "GPIO_10";
+    function = "miim";
+  };
 };
 
 &mdio0 {
-	pinctrl-0 = <&mdio_pins>;
-	pinctrl-names = "default";
-	status = "okay";
+  pinctrl-0 = <&mdio_pins>;
+  pinctrl-names = "default";
+  status = "okay";
 
-	phy3: phy@3 {
-		reg = <3>;
-	};
+  phy0: phy@0 {
+    reg = <0>;
+  };
+
+  phy1: phy@1 {
+    reg = <1>;
+  };
+
+  phy2: phy@2 {
+    reg = <2>;
+  };
+
+  phy3: phy@3 {
+    reg = <3>;
+  };
 };
 
 &switch {
-	status = "okay";
-	ethernet-ports {
-		port29: port@29 {
-			reg = <29>;
-			phy-handle = <&phy3>;
-			phys = <IF_RGMII>;
-		};
-	};
+  status = "okay";
+  ethernet-ports {
+    port0: port@0 {
+      reg = <0x00>;
+      microchip,bandwidth = <0x3e8>;
+      phy-handle = <&phy0>;
+      phy-mode = "qsgmii";
+      phys = <0x08 0x00>;
+    };
+
+    port1: port@1 {
+      reg = <0x01>;
+      microchip,bandwidth = <0x3e8>;
+      phy-handle = <&phy1>;
+      phy-mode = "qsgmii";
+      phys = <0x08 0x00>;
+    };
+
+    port2: port@2 {
+      reg = <0x02>;
+      microchip,bandwidth = <0x3e8>;
+      phy-handle = <&phy2>;
+      phy-mode = "qsgmii";
+      phys = <0x08 0x00>;
+    };
+
+    port3: port@3 {
+      reg = <0x03>;
+      microchip,bandwidth = <0x3e8>;
+      phy-handle = <&phy3>;
+      phy-mode = "qsgmii";
+      phys = <0x08 0x00>;
+    };
+  };
 };
