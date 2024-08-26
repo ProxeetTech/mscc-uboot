@@ -634,6 +634,7 @@ static vtss_sd10g28_setup_struct_t sgmii_conf = {
 	.cfg_ncntMaxVal_10_8 = {0x6},
 	.cfg_ssc_en = {0x1},
 	.r_rx_pol_inv = {0x1},
+	.r_tx_pol_inv = {0x1},
 };
 
 static vtss_sd10g28_setup_struct_t qsgmii_conf = {
@@ -687,6 +688,7 @@ static vtss_sd10g28_setup_struct_t qsgmii_conf = {
 	.cfg_ncntMaxVal_10_8 = {0x6},
 	.cfg_ssc_en = {0x1},
 	.r_rx_pol_inv = {0x1},
+	.r_tx_pol_inv = {0x1},
 };
 
 void sparx5_serdes_cmu_init(void)
