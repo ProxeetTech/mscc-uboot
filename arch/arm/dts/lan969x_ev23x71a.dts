@@ -68,15 +68,15 @@
     reg = <15>;
   };
 
-  phy12: phy@5 {
+  phy11: phy@5 {
     reg = <16>;
   };
 
-  phy13: phy@6 {
+  phy12: phy@6 {
     reg = <17>;
   };
 
-  phy14: phy@7 {
+  phy13: phy@7 {
     reg = <18>;
   };
 
