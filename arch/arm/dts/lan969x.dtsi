@@ -76,6 +76,13 @@
 				};
 			};
 
+			watchdog: watchdog@e0090000 {
+				compatible = "snps,dw-wdt";
+				reg = <0xe0090000 0x1000>;
+				clocks = <&fabric_clk>;
+				status = "disabled";
+			};
+
 			uart0: serial@e0040200 {
 				u-boot,dm-pre-reloc;
 				compatible = "atmel,at91sam9260-usart";

@@ -43,6 +43,10 @@
   };
 };
 
+&watchdog {
+	status = "okay";
+};
+
 &mdio0 {
   pinctrl-0 = <&mdio_pins>;
   pinctrl-names = "default";
