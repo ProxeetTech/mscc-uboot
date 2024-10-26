@@ -2691,3 +2691,20 @@ The U-Boot projects depends on contributions from the user community.
 If you want to participate, please, have a look at the 'General'
 section of https://u-boot.readthedocs.io/en/latest/develop/index.html
 where we describe coding standards and the patch submission process.
+
+
+Sing images
+===========
+Create keys
+```
+openssl genpkey -algorithm RSA -out keys/dev.key \
+    -pkeyopt rsa_keygen_bits:2048 -pkeyopt rsa_keygen_pubexp:65537
+openssl req -batch -new -x509 -key keys/dev.key -out keys/dev.crt
+```
+Install in dtb
+```
+mkimage -D "-I dts -O dtb -p 2000" -f u-boot.its fitImage
+mkimage -D "-I dts -O dtb -p 2000" -F -k keys -K u-boot.dtb -r fitImage
+dtc -I dtb -O dts -o u-boot_decompiled.dts u-boot.dtb
+```
+Then copy to control.dts
