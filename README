@@ -2703,7 +2703,7 @@ openssl req -batch -new -x509 -key keys/dev.key -out keys/dev.crt
 ```
 Install in dtb
 ```
-mkimage -D "-I dts -O dtb -p 2000" -f u-boot.its fitImage
+mkimage -D "-I dts -O dtb -p 2000" -f ubsign.its fitImage
 mkimage -D "-I dts -O dtb -p 2000" -F -k keys -K u-boot.dtb -r fitImage
 dtc -I dtb -O dts -o u-boot_decompiled.dts u-boot.dtb
 ```
