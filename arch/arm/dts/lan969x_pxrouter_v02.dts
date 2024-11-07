@@ -1,0 +1,236 @@
+/dts-v1/;
+
+#include "lan969x_a0.dtsi"
+#include "lan969x.dtsi"
+
+#include <dt-bindings/mscc/sparx5_data.h>
+
+/ {
+  model = "lan969x PxRouter (pcb v0.2)";
+  config {
+    u-boot,mmc-env-partition = "Env";
+  };
+
+  signature {
+
+    key-dev {
+      required = "conf";
+      algo = "sha1,rsa2048";
+      rsa,r-squared = <0xa11355a8 0xe5fbf853 0x4cad0cf3 0x18dde7c8 0x7c761f47 0xd5e232f2 0x37ee2d8c 0x4f342b5a 0x3c504e8 0x1da3bb73 0x6ecd88e6 0x8df92c62 0x4f755dc0 0x4b207061 0x622c7836 0x185bf909 0x4424a9ae 0xe6fe4c9b 0x8beb9731 0x3c1998a8 0x7561ac39 0xdb26b962 0xc31c0c63 0x72849969 0x28f2770c 0xee16c99a 0x77f3c3c9 0x58e62814 0x7244043d 0x7cf2dc63 0xda301712 0x785570b 0xab47eeb1 0x1ac4d905 0x60202f41 0x56ee6bf5 0x80a8e24 0x8718e819 0x20637a0a 0x1f1b9e61 0x1d39412e 0xba5d4e 0x2d1a4635 0xc653642c 0x6c6dcb8 0x42c06125 0x2e0814fd 0x37bb25f9 0xc3d8417f 0x799fcbe2 0x350ce116 0x4c6f42c0 0xab8d4f23 0xf9a31fb7 0x87387fc7 0x1033ca17 0xac36501f 0x6a55eef9 0xc98c1c16 0xa680486c 0x7b0d0f3e 0x630836c6 0x8048b1bc 0x7e2b3a35>;
+      rsa,modulus = <0xb6ee6f3e 0xaf0e11db 0x8d8c3ea7 0xc0a0e560 0xc54badd6 0xadb336e 0x8b90dbe 0x57b7cade 0xeb7d14a3 0x2419cc73 0x574e0744 0xc2191d5c 0xcca0f377 0x1987301a 0x68062ae9 0xc8185a98 0x851612ca 0x67d8d5de 0x4f3a1727 0x16623953 0x2d4a9c50 0x85d485d 0x92f07adb 0xb154db71 0xde9874c6 0x892da18e 0x150d9605 0x2b58bb05 0xa87b1850 0x150d2438 0xe96f2229 0x8ccbcc35 0xf042e21f 0x8984ae26 0x612dc0ba 0xedcf120c 0x8d7bcfc1 0x16c8ab6e 0xf89f8a4b 0x68888df0 0x1e0fa73f 0x6b4984f4 0x4ad3f537 0x959e698c 0xfb849080 0xf67b26e 0xe9341cb 0x6ae8120 0x9c232494 0x21194090 0xd5d96d32 0x57a8c610 0xa4dd22c5 0xa520de46 0x53a7f284 0xce6b6edb 0x217efa56 0x586b8301 0x996f323 0xe3cdbf9f 0x24a46d0c 0xd1fa07ef 0x627ea53d 0x960e5eaf>;
+      rsa,exponent = <0x00 0x10001>;
+      rsa,n0-inverse = <0xfc9247b1>;
+      rsa,num-bits = <0x800>;
+      key-name-hint = "dev";
+    };
+  };
+};
+
+&uart0 {
+  status = "okay";
+  pinctrl-0 = <&fc0_pins>;
+  pinctrl-names = "default";
+};
+
+&emmc {
+  status = "okay";
+  pinctrl-0 = <&emmc_sd_pins>;
+  pinctrl-names = "default";
+  bus-width = <8>;
+};
+
+&qspi {
+  status = "okay";
+  spi-flash@0 {
+    status = "okay";
+    compatible = "jedec,spi-nor";
+    reg = <0>;
+    spi-max-frequency = <104000000>;
+    u-boot,dm-pre-reloc;
+    m25p,fast-read;
+    spi-tx-bus-width = <1>;
+    spi-rx-bus-width = <4>;
+  };
+};
+
+&gpio {
+  mdio_pins: mdio-pins {
+    pins = "GPIO_9", "GPIO_10";
+    function = "miim";
+  };
+};
+
+&watchdog {
+	status = "okay";
+};
+
+&mdio0 {
+  pinctrl-0 = <&mdio_pins>;
+  pinctrl-names = "default";
+  status = "okay";
+
+  phy4: phy@4 {
+    reg = <4>;
+  };
+
+  phy5: phy@5 {
+    reg = <5>;
+  };
+
+  phy6: phy@6 {
+    reg = <6>;
+  };
+
+  phy7: phy@7 {
+    reg = <7>;
+  };
+
+  phy8: phy@8 {
+    reg = <8>;
+  };
+
+  phy9: phy@9 {
+    reg = <9>;
+  };
+
+  phy10: phy@10 {
+    reg = <10>;
+  };
+
+  phy11: phy@11 {
+    reg = <11>;
+  };
+
+  phy12: phy@12 {
+    reg = <12>;
+  };
+
+  phy13: phy@13 {
+    reg = <13>;
+  };
+
+  phy14: phy@14 {
+    reg = <14>;
+  };
+
+  phy15: phy@15 {
+    reg = <15>;
+  };
+
+  phy16: phy@16 {
+    reg = <16>;
+  };
+
+  phy17: phy@17 {
+    reg = <17>;
+  };
+
+  phy18: phy@18 {
+    reg = <18>;
+  };
+
+  phy19: phy@19 {
+    reg = <19>;
+  };
+};
+
+&switch {
+  status = "okay";
+  ethernet-ports {
+    port0: port@0 {
+      reg = <0>;
+      phy-handle = <&phy4>;
+      phys = <IF_QSGMII 10 1>;
+    };
+
+    port1: port@1 {
+      reg = <1>;
+      phy-handle = <&phy5>;
+      phys = <IF_QSGMII 10 1>;
+    };
+
+    port2: port@2 {
+      reg = <2>;
+      phy-handle = <&phy6>;
+      phys = <IF_QSGMII 10 1>;
+    };
+
+    port3: port@3 {
+      reg = <3>;
+      phy-handle = <&phy7>;
+      phys = <IF_QSGMII 10 1>;
+    };
+
+    port4: port@4 {
+      reg = <4>;
+      phy-handle = <&phy8>;
+      phys = <IF_QSGMII 10 0>;
+    };
+
+    port5: port@5 {
+      reg = <5>;
+      phy-handle = <&phy9>;
+      phys = <IF_QSGMII 10 0>;
+    };
+
+    port6: port@6 {
+      reg = <6>;
+      phy-handle = <&phy10>;
+      phys = <IF_QSGMII 10 0>;
+    };
+
+    port7: port@7 {
+      reg = <7>;
+      phy-handle = <&phy11>;
+      phys = <IF_QSGMII 10 0>;
+    };
+
+    port8: port@8 {
+      reg = <8>;
+      phy-handle = <&phy12>;
+      phys = <IF_QSGMII 10 3>;
+    };
+
+    port9: port@9 {
+      reg = <9>;
+      phy-handle = <&phy13>;
+      phys = <IF_QSGMII 10 3>;
+    };
+
+    port10: port@10 {
+      reg = <10>;
+      phy-handle = <&phy14>;
+      phys = <IF_QSGMII 10 3>;
+    };
+
+    port11: port@11 {
+      reg = <11>;
+      phy-handle = <&phy15>;
+      phys = <IF_QSGMII 10 3>;
+    };
+
+    port12: port@12 {
+      reg = <12>;
+      phy-handle = <&phy16>;
+      phys = <IF_QSGMII 10 2>;
+    };
+
+    port13: port@13 {
+      reg = <13>;
+      phy-handle = <&phy17>;
+      phys = <IF_QSGMII 10 2>;
+    };
+
+    port14: port@14 {
+      reg = <14>;
+      phy-handle = <&phy18>;
+      phys = <IF_QSGMII 10 2>;
+    };
+
+    port15: port@15 {
+      reg = <15>;
+      phy-handle = <&phy19>;
+      phys = <IF_QSGMII 10 2>;
+    };
+  };
+};
