@@ -203,6 +203,9 @@ int board_late_init(void)
 		env_set("boot_source", "");
 	}
 
+#ifdef CONFIG_PCB_TYPE
+	env_set("pcb", CONFIG_PCB_TYPE);
+#else
 	if (!env_get("pcb")) {
 		if (gd->board_type == BOARD_TYPE_EV23X71A)
 			env_set("pcb", "lan9698_ev23x71a_0_at_lan969x");
@@ -211,6 +214,7 @@ int board_late_init(void)
 		if (gd->board_type == BOARD_TYPE_PCB10001)
 			env_set("pcb", "lan9668_pcb10001_0_at_lan969x");
 	}
+#endif
 
 	return 0;
 }
