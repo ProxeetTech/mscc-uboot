@@ -7,9 +7,9 @@
 
 / {
   model = "lan969x ev23x71a (pcb8398)";
-  config {
-    u-boot,mmc-env-partition = "Env";
-  };
+//  config {
+//    u-boot,mmc-env-partition = "Env";
+//  };
 
 //  signature {
 //
