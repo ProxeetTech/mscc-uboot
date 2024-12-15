@@ -1970,6 +1970,13 @@ config CMD_BUTTON
 	  Any button drivers can be controlled with this command, e.g.
 	  button_gpio.
 
+config CMD_STARTP
+	bool "startp"
+	depends on CMD_GPIO
+	default y if CMD_GPIO
+	help
+	  Enable the 'startp' command which allows to run proxeet boot sequence.
+
 config CMD_CACHE
 	bool "icache or dcache"
 	help
