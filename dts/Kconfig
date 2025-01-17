@@ -156,6 +156,11 @@ config DEFAULT_DEVICE_TREE
 	  It can be overridden from the command line:
 	  $ make DEVICE_TREE=<device-tree-name>
 
+config PCB_TYPE
+	string "PCB type"
+	help
+	  This option specifies the default PCB used for DT selection in linux.
+
 config DEVICE_TREE_INCLUDES
        string "Extra .dtsi files to include when building DT control"
 	depends on OF_CONTROL

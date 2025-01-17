@@ -114,16 +114,13 @@ static int parse_json(char *data, int size, jcontent* jc)
     for (i = 1; i < r; i++) {
         cp = data + t[i].start;
         if (*cp == '{') { // array element
-            j = i + 1;
-            if (jsoneq(data, &t[j], "module") == 0) {
-				jc[items].module = data + t[j + 1].start;
-				jc[items].module_size = t[j + 1].end - t[j + 1].start;
+			jc[items].module = data + t[i - 1].start;
+			jc[items].module_size = t[i - 1].end - t[i - 1].start;
 
-                printf("- module: %.*s\n", jc[items].module_size,
-                        jc[items].module);
-				jc[items].module[jc[items].module_size]= 0;
-            }
-            j += 2;
+			printf("- module: %.*s\n", jc[items].module_size,
+					jc[items].module);
+			jc[items].module[jc[items].module_size]= 0;
+            j = i + 1;
             if (jsoneq(data, &t[j], "path") == 0) {
 				jc[items].path = data + t[j + 1].start;
 				jc[items].path_size = t[j + 1].end - t[j + 1].start;
@@ -264,7 +261,6 @@ static int update_from_file(char *filename, int mmc_new)
 					printf("Calculating CRC:\n");
 					crc_p = crc_str;
 					for (i = 0; i < 32; i++) {
-						// printf("%X", digits[i]);
 						crc_p += sprintf(crc_p, "%2.2X", digits[i]);
 					}
 					printf("CRC:  %s\n", crc_str);
@@ -309,7 +305,7 @@ static int update_from_file(char *filename, int mmc_new)
 										swap_curr_part(mmc_new);
 									}
 								} else {
-									// write to addr
+									// write to addr.
 									printf("flash file: %s, addr src 0x%lX, addr dst 0x%lX\n",
 											jc[j].path, file_addr, flash[dst_part[0]].addr);
 									snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /fit.itb 0x%lX",
@@ -338,38 +334,12 @@ static int update_from_file(char *filename, int mmc_new)
 					return -1;
 				}
 			}
-			// Update done
+			// Update done.
 			return 0;
-
 		} else {
 			printf("Empty json.\n");
 			return -1;
 		}
-
-		#if 0
-		blkcount = hextoul(filesize_str, NULL);
-		blkcount = blkcount/512 + 1;
-		mmc_curr = env_get("mmc_cur");
-		if (*mmc_curr == '5') {
-			// to 6
-			snprintf(cmd, sizeof(cmd), "mmc write 0x63000000 0x00282800 0x%lX", blkcount);
-		} else {
-			// to 5
-			snprintf(cmd, sizeof(cmd), "mmc write 0x63000000 0x00082800 0x%lX", blkcount);
-		}
-		ret = run_command(cmd, 0);
-		if (0 == ret) {
-			if (*mmc_curr == '5') {
-				env_set("mmc_cur", "6");
-			} else {
-				env_set("mmc_cur", "5");
-			}
-			env_save();
-			env_save();
-			snprintf(cmd, sizeof(cmd), "ext4write mmc 0:7 0x67000000 /update.bin 0x0");
-			ret = run_command(cmd, 0);
-		}
-		#endif
 	} else {
 		printf("File load error.\n");
 		return -1;
@@ -461,10 +431,7 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			}
 		}
 	}
-	// Normal boot
-	// snprintf(cmd, sizeof(cmd), "run mmcboot");
-	// ret = run_command(cmd, 0);
-	//return ret;
+	// Normal boot.
 	src = 0x80000000;
 	snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%s 0x%lX /fit.itb", mmc_curr, src);
 	ret = run_command(cmd, 0);
@@ -473,6 +440,7 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		ret = run_command(cmd, 0);
 	} else {
 		printf("File load failure.\n");
+		swap_curr_part(mmc_new);
 	}
 	return ret;
 }
