@@ -48,8 +48,8 @@ static flash_layout flash[16] = {
 	{.module = "bootloader.bak", .addr =   0x8100000, .type = PART_RAW},  // 2
 	{.module = "env.pri",        .addr =  0x10100000, .type = PART_RAW},  // 3
 	{.module = "env.bak",        .addr =  0x10300000, .type = PART_RAW},  // 4
-	{.module = "app.pri",        .addr =  0x10500000, .type = PART_EXT4}, // 5  files: fit.itb
-	{.module = "app.bak",        .addr =  0x50500000, .type = PART_EXT4}, // 6  files: fit.itb
+	{.module = "app.a",          .addr =  0x10500000, .type = PART_EXT4}, // 5  files: fit.itb
+	{.module = "app.b",          .addr =  0x50500000, .type = PART_EXT4}, // 6  files: fit.itb
 	{.module = "factory",        .addr =  0x90500000, .type = PART_EXT4}, // 7  files: factory.itb, u-boot-fip.bin, empty.ext4
 	{.module = "update",         .addr =  0xD0500000, .type = PART_FAT},  // 8  files: fw_001.bin
 	{.module = "config.pri",     .addr = 0x110500000, .type = PART_EXT4}, // 9  mount bind to /etc TODO migrate to file
