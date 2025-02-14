@@ -62,8 +62,8 @@ static flash_layout flash[16] = {
 #define FACTORY_PARTITION 7
 #define FACTORY_IMAGE_NAME "/fit.itb.gz"
 #define UPDATE_PARTITION 8
-
 #define FACTORY_PARTITION_IMAGE_NAME "factory.img.gz"
+#define MAX_FILE_SIZE 0x4000000
 
 static char cmd[512];
 
@@ -198,6 +198,12 @@ static unsigned long get_file_size(void)
 	return hextoul(filesize_str, NULL);
 }
 
+static unsigned long get_env_addr(const char* name)
+{
+	const char *str = env_get(name);
+	return hextoul(str, NULL);
+}
+
 static int update_from_file(char *filename, int mmc_new)
 {
 	int ret;
@@ -217,13 +223,13 @@ static int update_from_file(char *filename, int mmc_new)
 	int dst_part[2];
 	unsigned long file_addr;
 
-	src = 0x63000000;
+	src = get_env_addr("loadaddr");
 	snprintf(cmd, sizeof(cmd), "fatload mmc 0:%d 0x%lX /%s", UPDATE_PARTITION, src, filename);
 	ret = run_command(cmd, 0);
 	filesize = get_file_size();
 	if ((0 == ret) && (filesize > 0)) {
 		printf("Update is available.\n");
-		dst = 0x6c000000;
+		dst = 0x6c000000; // TODO replace constant
 		dst_len = 0x16000000;
 		src_len = filesize;
 
@@ -392,8 +398,8 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	// Checking if the button has been pressed.
 	if (i == max_wait) {
 		printf("Try factory restore\n");
-		src = 0x63000000;
-		dst = 0x67000000;
+		src = get_env_addr("loadaddr");
+		dst = src + MAX_FILE_SIZE;
 		snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%d 0x%lX %s", FACTORY_PARTITION, src, FACTORY_IMAGE_NAME);
 		ret = run_command(cmd, 0);
 		if (0 == ret) {
@@ -444,11 +450,11 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		}
 	}
 	// Normal boot.
-	src = 0x80000000;
+	src = 0x80000000; // TODO
 	snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%s 0x%lX /fit.itb", mmc_curr, src);
 	ret = run_command(cmd, 0);
 	if (0 == ret) {
-		snprintf(cmd, sizeof(cmd), "bootm 0x%lX", src);
+		snprintf(cmd, sizeof(cmd), "bootm 0x%lX#${pcb}", src);
 		ret = run_command(cmd, 0);
 	} else {
 		printf("File load failure.\n");
@@ -463,8 +469,8 @@ int do_startf(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	unsigned long filesize, blkcount;
 	unsigned long src, dst;
 
-	src = 0x63000000;
-	dst = 0x67000000;
+	src = get_env_addr("loadaddr");
+	dst = src + MAX_FILE_SIZE;
 	snprintf(cmd, sizeof(cmd), "tftp 0x%lX %s", src, FACTORY_PARTITION_IMAGE_NAME);
 	ret = run_command(cmd, 0);
 	if (0 == ret) {
