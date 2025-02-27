@@ -44,22 +44,26 @@ enum {
 
 static flash_layout flash[16] = {
 	{.module = "gpt",            .addr =           0, .type = PART_RAW},  // 0  gpt
-	{.module = "bootloader.pri", .addr =    0x100000, .type = PART_RAW},  // 1
-	{.module = "bootloader.bak", .addr =   0x8100000, .type = PART_RAW},  // 2
-	{.module = "env.pri",        .addr =  0x10100000, .type = PART_RAW},  // 3
-	{.module = "env.bak",        .addr =  0x10300000, .type = PART_RAW},  // 4
-	{.module = "app.a",          .addr =  0x10500000, .type = PART_EXT4}, // 5  files: fit.itb
-	{.module = "app.b",          .addr =  0x50500000, .type = PART_EXT4}, // 6  files: fit.itb
-	{.module = "factory",        .addr =  0x90500000, .type = PART_EXT4}, // 7  files: factory.itb, u-boot-fip.bin, empty.ext4
-	{.module = "update",         .addr =  0xD0500000, .type = PART_FAT},  // 8  files: fw_001.bin
-	{.module = "config.pri",     .addr = 0x110500000, .type = PART_EXT4}, // 9  mount bind to /etc TODO migrate to file
-	{.module = "config.bak",     .addr = 0x150500000, .type = PART_EXT4}, // 10 mount bind to /etc
+	{.module = "bootloader.pri", .addr =    0x100000, .type = PART_RAW},  // 1  fip.bin
+	{.module = "bootloader.bak", .addr =   0x8100000, .type = PART_RAW},  // 2  fip.bin factory restore
+	{.module = "env.pri",        .addr =  0x10100000, .type = PART_RAW},  // 3  environment
+	{.module = "env.bak",        .addr =  0x10300000, .type = PART_RAW},  // 4  environment backup
+	{.module = "app.a",          .addr =  0x10500000, .type = PART_EXT4}, // 5  files: fit.itb, config.bin
+	{.module = "app.b",          .addr =  0x50500000, .type = PART_EXT4}, // 6  files: fit.itb, config.bin
+	{.module = "factory",        .addr =  0x90500000, .type = PART_EXT4}, // 7  files: fit.itb.gz,
+																		  //           u-boot-fip.bin, u-boot-factory-fip.bin,
+																		  //           empty_ext4.img.gz, empty_fat.img.gz
+	{.module = "update",         .addr =  0xD0500000, .type = PART_FAT},  // 8  files: etc fw_001.bin
+	{.module = "config",         .addr = 0x110500000, .type = PART_EXT4}, // 9
+	{.module = "data",           .addr = 0x150500000, .type = PART_EXT4}, // 10
 	{.module = "",               .addr = -1,          .type = PART_INVALID}
 };
 
 #define FACTORY_PARTITION 7
-#define FACTORY_IMAGE_NAME "/factory.img.gz"
+#define FACTORY_IMAGE_NAME "/fit.itb.gz"
 #define UPDATE_PARTITION 8
+#define FACTORY_PARTITION_IMAGE_NAME "factory.img.gz"
+#define MAX_FILE_SIZE 0x4000000
 
 static char cmd[512];
 
@@ -147,7 +151,9 @@ static int untar(char *data, int size, tar_files *files)
 {
     size_t spare_size, file_size, file_offset, tar_offset;
     int i = 0, j;
-	tar_header *h;
+    tar_header *h;
+
+    printf("untar size: %d\n", size);
 
     if (size > TARBLOCKSIZE) {
         tar_offset = 0;
@@ -155,25 +161,27 @@ static int untar(char *data, int size, tar_files *files)
             h = (tar_header *) (data + tar_offset);
             file_size = simple_strtol(h->size, NULL, 8);
             spare_size = (file_size + TARBLOCKSIZE - 1) & ~(TARBLOCKSIZE - 1);
-            if (0 == file_size || 0 == strlen(h->name)) {
-                break;
-            }
-			// Remove symbols ./ in front of the name.
-			for (j = 0; j < strlen(h->name); j++) {
-				if ( !(h->name[j] == '.' || h->name[j] == '/') )
-					break;
-			}
             file_offset = tar_offset + TARBLOCKSIZE;
             tar_offset += spare_size + TARBLOCKSIZE;
-            strcpy(files[i].name, h->name + j);
-            files[i].size = file_size;
-            files[i].offset = file_offset;
-            printf("name %s, size: %ld, spare_size %ld, flag %d\n", files[i].name,
-					files[i].size, spare_size, (int)h->typeflag);
-            i++;
+            if (h->typeflag == '0') { // Regular file.
+                if (0 == strlen(h->name))
+                    break;
+                // Remove symbols ./ in front of the name.
+                for (j = 0; j < strlen(h->name); j++) {
+                    if ( !(h->name[j] == '.' || h->name[j] == '/') )
+                        break;
+                }
+                strcpy(files[i].name, h->name + j);
+                files[i].size = file_size;
+                files[i].offset = file_offset;
+                printf("name %s, size: %ld, spare_size %ld, flag %d\n", files[i].name,
+                        files[i].size, spare_size, (int)h->typeflag);
+                i++;
+            }
         }
     } else {
-        return -1; /* Tar file too small */
+        printf("Tar file is too small.\n");
+        return -1;
     }
     return i;
 }
@@ -192,6 +200,12 @@ static unsigned long get_file_size(void)
 {
 	const char *filesize_str = env_get("filesize");
 	return hextoul(filesize_str, NULL);
+}
+
+static unsigned long get_env_addr(const char* name)
+{
+	const char *str = env_get(name);
+	return hextoul(str, NULL);
 }
 
 static int update_from_file(char *filename, int mmc_new)
@@ -213,24 +227,27 @@ static int update_from_file(char *filename, int mmc_new)
 	int dst_part[2];
 	unsigned long file_addr;
 
-	src = 0x63000000;
+	src = get_env_addr("loadaddr");
 	snprintf(cmd, sizeof(cmd), "fatload mmc 0:%d 0x%lX /%s", UPDATE_PARTITION, src, filename);
 	ret = run_command(cmd, 0);
 	filesize = get_file_size();
 	if ((0 == ret) && (filesize > 0)) {
 		printf("Update is available.\n");
-		dst = 0x6c000000;
+		dst = 0x6c000000; // TODO replace constant
 		dst_len = 0x16000000;
 		src_len = filesize;
 
 		if (gunzip(uncomp_data = map_sysmem(dst, dst_len), dst_len, map_sysmem(src, src_len),
 				&src_len) != 0) {
+			printf("Unable extract update file\n");
 			return 1;
 		}
 
 		uncomp_size = src_len; // length of uncompressed data
 
 		files_count = untar(uncomp_data, uncomp_size, files);
+
+		printf("%d files in tar\n", files_count);
 
 		if (files_count > 0) {
 			for (fi = 0; fi < files_count; fi++) {
@@ -240,6 +257,9 @@ static int update_from_file(char *filename, int mmc_new)
 					break;
 				}
 			}
+		} else {
+			printf("Empty tar file.\n");
+			return -1;
 		}
 
 		if (j_items > 0) {
@@ -372,7 +392,7 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	for (i = 0; i < max_wait; i++) {
 		snprintf(cmd, sizeof(cmd), "gpio read recbutton ${recgpio}");
 		ret = run_command(cmd, 0);
-		p = env_get("recgpio");
+		p = env_get("recbutton");
 		if (*pv == *p) {
 			printf("Button is pressed.\n");
 		} else {
@@ -388,8 +408,8 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	// Checking if the button has been pressed.
 	if (i == max_wait) {
 		printf("Try factory restore\n");
-		src = 0x63000000;
-		dst = 0x67000000;
+		src = get_env_addr("loadaddr");
+		dst = src + MAX_FILE_SIZE;
 		snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%d 0x%lX %s", FACTORY_PARTITION, src, FACTORY_IMAGE_NAME);
 		ret = run_command(cmd, 0);
 		if (0 == ret) {
@@ -397,7 +417,13 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			ret = run_command(cmd, 0);
 			if (0 == ret) {
 				snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /fit.itb 0x%lX", mmc_new, dst, get_file_size());
-				run_command(cmd, 0);
+				ret = run_command(cmd, 0);
+				if (0 != ret) {
+					printf("restore fail, try startf - factory restore process\n");
+					return ret;
+				}
+			} else {
+				printf("unzip fail %s\n", FACTORY_IMAGE_NAME);
 			}
 		} else {
 			printf("Factory image not found\n");
@@ -429,14 +455,16 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			} else {
 				printf("There is no valid update files.\n");
 			}
+		} else {
+
 		}
 	}
 	// Normal boot.
-	src = 0x80000000;
+	src = 0x80000000; // TODO
 	snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%s 0x%lX /fit.itb", mmc_curr, src);
 	ret = run_command(cmd, 0);
 	if (0 == ret) {
-		snprintf(cmd, sizeof(cmd), "bootm 0x%lX", src);
+		snprintf(cmd, sizeof(cmd), "bootm 0x%lX#${pcb}", src);
 		ret = run_command(cmd, 0);
 	} else {
 		printf("File load failure.\n");
@@ -445,8 +473,97 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	return ret;
 }
 
+int do_startf(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+{
+	int ret;
+	unsigned long filesize, blkcount;
+	unsigned long src, dst;
+
+	src = get_env_addr("loadaddr");
+	dst = src + MAX_FILE_SIZE;
+	snprintf(cmd, sizeof(cmd), "tftp 0x%lX %s", src, FACTORY_PARTITION_IMAGE_NAME);
+	ret = run_command(cmd, 0);
+	if (0 == ret) {
+		snprintf(cmd, sizeof(cmd), "unzip 0x%lX 0x%lX", src, dst);
+		ret = run_command(cmd, 0);
+		if (0 == ret) {
+			blkcount = get_file_size() / 512 + 1;
+			snprintf(cmd, sizeof(cmd), "mmc write 0x%lX 0x%lX 0x%lX",
+					dst, flash[FACTORY_PARTITION].addr / 512, blkcount);
+			ret = run_command(cmd, 0);
+			if (0 == ret) {
+				snprintf(cmd, sizeof(cmd), "ext4load 0:%d 0x%lX /empty_ext4.img.gz",
+					FACTORY_PARTITION, src);
+				ret = run_command(cmd, 0);
+				if (0 == ret) {
+					snprintf(cmd, sizeof(cmd), "unzip 0x%lX 0x%lX", src, dst);
+					ret = run_command(cmd, 0);
+					if (0 == ret) {
+						filesize = get_file_size();
+						blkcount = filesize / 512 + 1;
+						snprintf(cmd, sizeof(cmd), "mmc write 0x%lX 0x%lX 0x%lX",
+								dst, flash[5].addr / 512, blkcount);
+						ret = run_command(cmd, 0);
+						if (0 != ret) {
+							printf("Can't create app.a partition\n");
+						}
+
+						snprintf(cmd, sizeof(cmd), "mmc write 0x%lX 0x%lX 0x%lX",
+								dst, flash[6].addr / 512, blkcount);
+						ret = run_command(cmd, 0);
+						if (0 != ret) {
+							printf("Can't create app.b partition\n");
+						}
+
+						snprintf(cmd, sizeof(cmd), "ext4load 0:%d 0x%lX /empty_fat.img.gz",
+							FACTORY_PARTITION, src);
+						ret = run_command(cmd, 0);
+						if (0 == ret) {
+							snprintf(cmd, sizeof(cmd), "unzip 0x%lX 0x%lX", src, dst);
+							ret = run_command(cmd, 0);
+							if (0 == ret) {
+								filesize = get_file_size();
+								blkcount = filesize / 512 + 1;
+								snprintf(cmd, sizeof(cmd), "mmc write 0x%lX 0x%lX 0x%lX",
+										dst, flash[8].addr / 512, blkcount);
+								ret = run_command(cmd, 0);
+								if (0 != ret) {
+									printf("Can't create update partition\n");
+								}
+
+							} else {
+								printf("Can't unzip empty fat partition\n");
+							}
+						} else {
+							printf("Can't load empty fat partition\n");
+						}
+
+					} else {
+						printf("Can't unzip empty ext4 partition\n");
+					}
+				} else {
+					printf("Can't load empty ext4 partition\n");
+				}
+			} else {
+				printf("Can't write factory partition\n");
+			}
+		} else {
+			printf("Can't unzip factory partition\n");
+		}
+	} else {
+		printf("Can't load factory partition\n");
+	}
+	return ret;
+}
+
 U_BOOT_CMD(
 	startp, 1, 0, do_startp,
 	"startp",
 	"startp to start proxeet boot"
+);
+
+U_BOOT_CMD(
+	startf, 1, 0, do_startf,
+	"startf",
+	"startp to start factory"
 );
