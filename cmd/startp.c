@@ -151,7 +151,9 @@ static int untar(char *data, int size, tar_files *files)
 {
     size_t spare_size, file_size, file_offset, tar_offset;
     int i = 0, j;
-	tar_header *h;
+    tar_header *h;
+
+    printf("untar size: %d\n", size);
 
     if (size > TARBLOCKSIZE) {
         tar_offset = 0;
@@ -159,25 +161,27 @@ static int untar(char *data, int size, tar_files *files)
             h = (tar_header *) (data + tar_offset);
             file_size = simple_strtol(h->size, NULL, 8);
             spare_size = (file_size + TARBLOCKSIZE - 1) & ~(TARBLOCKSIZE - 1);
-            if (0 == file_size || 0 == strlen(h->name)) {
-                break;
-            }
-			// Remove symbols ./ in front of the name.
-			for (j = 0; j < strlen(h->name); j++) {
-				if ( !(h->name[j] == '.' || h->name[j] == '/') )
-					break;
-			}
             file_offset = tar_offset + TARBLOCKSIZE;
             tar_offset += spare_size + TARBLOCKSIZE;
-            strcpy(files[i].name, h->name + j);
-            files[i].size = file_size;
-            files[i].offset = file_offset;
-            printf("name %s, size: %ld, spare_size %ld, flag %d\n", files[i].name,
-					files[i].size, spare_size, (int)h->typeflag);
-            i++;
+            if (h->typeflag == '0') { // Regular file.
+                if (0 == strlen(h->name))
+                    break;
+                // Remove symbols ./ in front of the name.
+                for (j = 0; j < strlen(h->name); j++) {
+                    if ( !(h->name[j] == '.' || h->name[j] == '/') )
+                        break;
+                }
+                strcpy(files[i].name, h->name + j);
+                files[i].size = file_size;
+                files[i].offset = file_offset;
+                printf("name %s, size: %ld, spare_size %ld, flag %d\n", files[i].name,
+                        files[i].size, spare_size, (int)h->typeflag);
+                i++;
+            }
         }
     } else {
-        return -1; /* Tar file too small */
+        printf("Tar file is too small.\n");
+        return -1;
     }
     return i;
 }
@@ -235,12 +239,15 @@ static int update_from_file(char *filename, int mmc_new)
 
 		if (gunzip(uncomp_data = map_sysmem(dst, dst_len), dst_len, map_sysmem(src, src_len),
 				&src_len) != 0) {
+			printf("Unable extract update file\n");
 			return 1;
 		}
 
 		uncomp_size = src_len; // length of uncompressed data
 
 		files_count = untar(uncomp_data, uncomp_size, files);
+
+		printf("%d files in tar\n", files_count);
 
 		if (files_count > 0) {
 			for (fi = 0; fi < files_count; fi++) {
@@ -250,6 +257,9 @@ static int update_from_file(char *filename, int mmc_new)
 					break;
 				}
 			}
+		} else {
+			printf("Empty tar file.\n");
+			return -1;
 		}
 
 		if (j_items > 0) {
