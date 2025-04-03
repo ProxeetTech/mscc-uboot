@@ -17,6 +17,13 @@
 #include <asm/arch/lan969x_targets_a0.h>
 #include <asm/arch/lan969x_regs_a0.h>
 
+#include <dm.h>
+#include <dm/device.h>
+#include <dm/device-internal.h>
+#include <dm/uclass.h>
+
+#include <command.h>
+
 DECLARE_GLOBAL_DATA_PTR;
 
 enum {
@@ -215,6 +222,17 @@ int board_late_init(void)
 			env_set("pcb", "lan9668_pcb10001_0_at_lan969x");
 	}
 #endif
+
+#ifdef CONFIG_CARRIER_ID_GPIO
+    int ret;
+    struct udevice *dev;
+    ret = uclass_get_device_by_driver(UCLASS_MISC,
+                                      DM_DRIVER_GET(carrier_id),
+                                      &dev);
+    if (ret) {
+        printf("Error: cannot probe carrier_id: %d\n", ret);
+    }
+#endif /* CONFIG_CARRIER_ID_GPIO */
 
 	return 0;
 }

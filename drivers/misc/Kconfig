@@ -659,4 +659,11 @@ config SL28CPLD
 	  the base driver which provides common access methods for the
 	  sub-drivers.
 
+config CARRIER_ID_GPIO
+	bool "Enable GPIO Carrier ID driver"
+	depends on MISC
+	help
+	  Enable driver for reading 8 GPIO pins to form a numeric ID.
+
+
 endmenu
