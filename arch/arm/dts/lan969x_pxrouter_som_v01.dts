@@ -4,9 +4,15 @@
 #include "lan969x.dtsi"
 
 #include <dt-bindings/mscc/sparx5_data.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
   model = "lan969x PxRouter (som pcb v0.1)";
+
+  carrier-id {
+    compatible = "custom,carrier-id-gpio";
+    id-gpios = <25 26 27 50 51 52 53 54>;
+  };
 };
 
 &uart0 {
@@ -44,7 +50,7 @@
 };
 
 &watchdog {
-	status = "okay";
+    status = "okay";
 };
 
 &mdio0 {
