@@ -20,6 +20,12 @@
 #include "jsmn.h"
 #include "tar.h"
 
+enum {
+	UPD_MODE_NONE,
+	UPD_MODE_FILE,
+	UPD_MODE_IMAGE
+};
+
 typedef struct {
 	char *module;
 	int module_size;
@@ -27,6 +33,7 @@ typedef struct {
 	int path_size;
 	char *sha256;
 	int sha256_size;
+	int mode;
 } jcontent;
 
 typedef struct {
@@ -48,14 +55,14 @@ static flash_layout flash[16] = {
 	{.module = "bootloader.bak", .addr =   0x8100000, .type = PART_RAW},  // 2  fip.bin factory restore
 	{.module = "env.pri",        .addr =  0x10100000, .type = PART_RAW},  // 3  environment
 	{.module = "env.bak",        .addr =  0x10300000, .type = PART_RAW},  // 4  environment backup
-	{.module = "app.a",          .addr =  0x10500000, .type = PART_EXT4}, // 5  files: fit.itb, config.bin
-	{.module = "app.b",          .addr =  0x50500000, .type = PART_EXT4}, // 6  files: fit.itb, config.bin
+	{.module = "app.a",          .addr =  0x10500000, .type = PART_EXT4}, // 5  files: fit.itb
+	{.module = "app.b",          .addr =  0x50500000, .type = PART_EXT4}, // 6  files: fit.itb
 	{.module = "factory",        .addr =  0x90500000, .type = PART_EXT4}, // 7  files: fit.itb.gz,
 																		  //           u-boot-fip.bin, u-boot-factory-fip.bin,
 																		  //           empty_ext4.img.gz, empty_fat.img.gz
 	{.module = "update",         .addr =  0xD0500000, .type = PART_FAT},  // 8  files: etc fw_001.bin
-	{.module = "config",         .addr = 0x110500000, .type = PART_EXT4}, // 9
-	{.module = "data",           .addr = 0x150500000, .type = PART_EXT4}, // 10
+	{.module = "config.a",       .addr = 0x110500000, .type = PART_EXT4}, // 9  config.bin
+	{.module = "config.b",       .addr = 0x150500000, .type = PART_EXT4}, // 10 config.bin
 	{.module = "",               .addr = -1,          .type = PART_INVALID}
 };
 
@@ -94,6 +101,8 @@ static int parse_json(char *data, int size, jcontent* jc)
     int r;
     char *cp;
 	int items = 0;
+	char *mode_start;
+	int mode_size;
 
     jsmn_init(&p);
     r = jsmn_parse(&p, data, size, t,
@@ -141,6 +150,23 @@ static int parse_json(char *data, int size, jcontent* jc)
 				jc[items].sha256[jc[items].sha256_size]= 0;
 				toupper(jc[items].sha256);
             }
+
+			j += 2;
+			if (jsoneq(data, &t[j], "update_mode") == 0) {
+
+				mode_start = data + t[j + 1].start;
+				mode_size = t[j + 1].end - t[j + 1].start;
+				mode_start[mode_size]= 0;
+				if (strncmp("file", mode_start, min(mode_size, 4)) == 0) {
+					jc[items].mode = UPD_MODE_FILE;
+				} else if (strncmp("image", mode_start, min(mode_size, 5)) == 0) {
+					jc[items].mode = UPD_MODE_IMAGE;
+				} else {
+					jc[items].mode = UPD_MODE_NONE;
+				}
+				printf("- mode %s(%d)", mode_start, jc[items].mode);
+			}
+
 			items++;
         }
     }
@@ -208,15 +234,38 @@ static unsigned long get_env_addr(const char* name)
 	return hextoul(str, NULL);
 }
 
+static tar_files files[MAX_FILES_IN_TAR];
+static jcontent jc[MAX_FILES_IN_TAR];
+
+static int flash_file(int json_index, int file_index, unsigned long file_addr, int part)
+{
+	printf("flash file: %s, addr src 0x%lX, addr dst 0x%lX\n",
+			jc[json_index].path, file_addr, flash[part].addr);
+	snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /%s 0x%lX",
+			part, file_addr, jc[json_index].path, files[file_index].size);
+	printf("RUN: %s\n", cmd);
+	return run_command(cmd, 0);
+}
+
+static int flash_image(int json_index, int file_index, unsigned long file_addr, int part)
+{
+	unsigned long blkcount;
+	printf("flash file: %s, addr src 0x%lX, addr dst 0x%lX\n",
+				jc[json_index].path, file_addr, flash[part].addr);
+	blkcount = files[file_index].size / 512 + 1;
+	snprintf(cmd, sizeof(cmd), "mmc write 0x%lX 0x%lX 0x%lX",
+			file_addr, flash[part].addr / 512, blkcount);
+	printf("RUN: %s\n", cmd);
+	return run_command(cmd, 0);
+}
+
 static int update_from_file(char *filename, int mmc_new)
 {
 	int ret;
-	unsigned long filesize, blkcount;
+	unsigned long filesize;
 	unsigned long src, dst, dst_len, src_len, uncomp_size;
 	char *uncomp_data;
 	int files_count;
-	tar_files files[MAX_FILES_IN_TAR];
-	jcontent jc[MAX_FILES_IN_TAR];
 	int j_items = 0;
 	int i, j, ia, fi;
 	sha256_context ctx;
@@ -233,7 +282,7 @@ static int update_from_file(char *filename, int mmc_new)
 	filesize = get_file_size();
 	if ((0 == ret) && (filesize > 0)) {
 		printf("Update is available.\n");
-		dst = 0x6c000000; // TODO replace constant
+		dst = src + 0x7000000; // 112Mb for update
 		dst_len = 0x16000000;
 		src_len = filesize;
 
@@ -298,40 +347,31 @@ static int update_from_file(char *filename, int mmc_new)
 							ia++;
 						}		
 						if (part_count > 0) { // Addr found
-							
 							switch (flash[dst_part[0]].type)
 							{
 							case PART_RAW:
 								printf("Update raw.\n");
-								printf("flash file: %s, addr src 0x%lX, addr dst 0x%lX\n",
-											jc[j].path, file_addr, flash[dst_part[0]].addr);
-								blkcount = files[fi].size / 512 + 1;
-								snprintf(cmd, sizeof(cmd), "mmc write 0x%lX 0x%lX 0x%lX",
-										file_addr, flash[mmc_new].addr / 512, blkcount);
-								printf("RUN: %s\n", cmd);
-								ret = run_command(cmd, 0);
+								ret = flash_image(j, fi, file_addr, dst_part[0]);
 								break;
 							case PART_EXT4:
 								printf("Update ext4.\n");
 								if (part_count == 2) {
 									// Redundancy update.
-									printf("flash file: %s, addr src 0x%lX, addr dst 0x%lX\n",
-											jc[j].path, file_addr, flash[mmc_new].addr);
-									snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /fit.itb 0x%lX",
-											mmc_new, file_addr, files[fi].size);
-									printf("RUN: %s\n", cmd);
-									ret = run_command(cmd, 0);
-									if (0 == ret) {
-										swap_curr_part(mmc_new);
+									if ((UPD_MODE_FILE == jc[j].mode) || (UPD_MODE_NONE == jc[j].mode)) {
+										ret = flash_file(j, fi, file_addr, mmc_new);
+										if (0 == ret) {
+											swap_curr_part(mmc_new);
+										}
+									} else if (UPD_MODE_IMAGE == jc[j].mode) {
+										ret = flash_image(j, fi, file_addr, mmc_new);
+										if (0 == ret) {
+											swap_curr_part(mmc_new);
+										}
 									}
+									// TODO copy config?
 								} else {
-									// write to addr.
-									printf("flash file: %s, addr src 0x%lX, addr dst 0x%lX\n",
-											jc[j].path, file_addr, flash[dst_part[0]].addr);
-									snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /fit.itb 0x%lX",
-											dst_part[0], file_addr, files[fi].size);
-									printf("RUN: %s\n", cmd);
-									ret = run_command(cmd, 0);
+									// Write to specific partition.
+									ret = flash_file(j, fi, file_addr, dst_part[0]);
 								}
 								break;
 							case PART_FAT:
@@ -460,16 +500,18 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		}
 	}
 	// Normal boot.
-	src = 0x80000000; // TODO
-	snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%s 0x%lX /fit.itb", mmc_curr, src);
+	// src = get_env_addr("loadaddr");
+	// snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%s 0x%lX /fit.itb", mmc_curr, src);
+	// ret = run_command(cmd, 0);
+	// if (0 == ret) {
+	// 	snprintf(cmd, sizeof(cmd), "bootm 0x%lX#${pcb}", src);
+	// 	ret = run_command(cmd, 0);
+	// } else {
+	// 	printf("File load failure.\n");
+	// 	swap_curr_part(mmc_new);
+	// }
+	snprintf(cmd, sizeof(cmd), "boot");
 	ret = run_command(cmd, 0);
-	if (0 == ret) {
-		snprintf(cmd, sizeof(cmd), "bootm 0x%lX#${pcb}", src);
-		ret = run_command(cmd, 0);
-	} else {
-		printf("File load failure.\n");
-		swap_curr_part(mmc_new);
-	}
 	return ret;
 }
 
