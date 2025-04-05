@@ -20,6 +20,12 @@
 #include "jsmn.h"
 #include "tar.h"
 
+enum {
+	UPD_MODE_NONE,
+	UPD_MODE_FILE,
+	UPD_MODE_IMAGE
+};
+
 typedef struct {
 	char *module;
 	int module_size;
@@ -27,6 +33,7 @@ typedef struct {
 	int path_size;
 	char *sha256;
 	int sha256_size;
+	int mode;
 } jcontent;
 
 typedef struct {
@@ -48,14 +55,14 @@ static flash_layout flash[16] = {
 	{.module = "bootloader.bak", .addr =   0x8100000, .type = PART_RAW},  // 2  fip.bin factory restore
 	{.module = "env.pri",        .addr =  0x10100000, .type = PART_RAW},  // 3  environment
 	{.module = "env.bak",        .addr =  0x10300000, .type = PART_RAW},  // 4  environment backup
-	{.module = "app.a",          .addr =  0x10500000, .type = PART_EXT4}, // 5  files: fit.itb, config.bin
-	{.module = "app.b",          .addr =  0x50500000, .type = PART_EXT4}, // 6  files: fit.itb, config.bin
+	{.module = "app.a",          .addr =  0x10500000, .type = PART_EXT4}, // 5  files: fit.itb
+	{.module = "app.b",          .addr =  0x50500000, .type = PART_EXT4}, // 6  files: fit.itb
 	{.module = "factory",        .addr =  0x90500000, .type = PART_EXT4}, // 7  files: fit.itb.gz,
 																		  //           u-boot-fip.bin, u-boot-factory-fip.bin,
 																		  //           empty_ext4.img.gz, empty_fat.img.gz
 	{.module = "update",         .addr =  0xD0500000, .type = PART_FAT},  // 8  files: etc fw_001.bin
-	{.module = "config",         .addr = 0x110500000, .type = PART_EXT4}, // 9
-	{.module = "data",           .addr = 0x150500000, .type = PART_EXT4}, // 10
+	{.module = "config.a",       .addr = 0x110500000, .type = PART_EXT4}, // 9  config.bin
+	{.module = "config.b",       .addr = 0x150500000, .type = PART_EXT4}, // 10 config.bin
 	{.module = "",               .addr = -1,          .type = PART_INVALID}
 };
 
@@ -89,11 +96,13 @@ static int parse_json(char *data, int size, jcontent* jc)
 {
     int i,j;
     jsmn_parser p;
-	const int max_token_count = 128; /* We expect no more than 128 tokens */
+    const int max_token_count = 128; /* We expect no more than 128 tokens */
     jsmntok_t t[max_token_count];
     int r;
     char *cp;
-	int items = 0;
+    int items = 0;
+    char *mode_start;
+    int mode_size;
 
     jsmn_init(&p);
     r = jsmn_parse(&p, data, size, t,
@@ -103,10 +112,10 @@ static int parse_json(char *data, int size, jcontent* jc)
         return -1;
     }
 
-	if (r > max_token_count) {
-		printf("JSON token count (%d) more then the max value %d.\n", r, max_token_count);
+    if (r > max_token_count) {
+        printf("JSON token count (%d) more then the max value %d.\n", r, max_token_count);
         return -1;
-	}
+    }
 
     /* Assume the top-level element is an object */
     if (r < 1 || t[0].type != JSMN_OBJECT) {
@@ -118,30 +127,52 @@ static int parse_json(char *data, int size, jcontent* jc)
     for (i = 1; i < r; i++) {
         cp = data + t[i].start;
         if (*cp == '{') { // array element
-			jc[items].module = data + t[i - 1].start;
-			jc[items].module_size = t[i - 1].end - t[i - 1].start;
+            jc[items].module = data + t[i - 1].start;
+            jc[items].module_size = t[i - 1].end - t[i - 1].start;
 
-			printf("- module: %.*s\n", jc[items].module_size,
-					jc[items].module);
-			jc[items].module[jc[items].module_size]= 0;
+            printf("- module: %.*s\n", jc[items].module_size,
+                    jc[items].module);
+            jc[items].module[jc[items].module_size]= 0;
             j = i + 1;
-            if (jsoneq(data, &t[j], "path") == 0) {
-				jc[items].path = data + t[j + 1].start;
-				jc[items].path_size = t[j + 1].end - t[j + 1].start;
-				printf("- path: %.*s\n", jc[items].path_size,
-						jc[items].path);
-				jc[items].path[jc[items].path_size]= 0;
+            for (j = i + 1; j < r; j++) {
+                if (jsoneq(data, &t[j], "update_mode") == 0) {
+                    mode_start = data + t[j + 1].start;
+                    mode_size = t[j + 1].end - t[j + 1].start;
+                    mode_start[mode_size]= 0;
+                    if (strncmp("file", mode_start, min(mode_size, 4)) == 0) {
+                        jc[items].mode = UPD_MODE_FILE;
+                    } else if (strncmp("image", mode_start, min(mode_size, 5)) == 0) {
+                        jc[items].mode = UPD_MODE_IMAGE;
+                    } else {
+                        jc[items].mode = UPD_MODE_NONE;
+                    }
+                    printf("- update_mode %s(%d)\n", mode_start, jc[items].mode);
+                    j += 1;
+                }
+                if (jsoneq(data, &t[j], "path") == 0) {
+                    jc[items].path = data + t[j + 1].start;
+                    jc[items].path_size = t[j + 1].end - t[j + 1].start;
+                    printf("- path: %.*s\n", jc[items].path_size,
+                            jc[items].path);
+                    jc[items].path[jc[items].path_size]= 0;
+                    j += 1;
+                }
+                if (jsoneq(data, &t[j], "sha256") == 0) {
+                    jc[items].sha256 = data + t[j + 1].start;
+                    jc[items].sha256_size = t[j + 1].end - t[j + 1].start;
+                    printf("- sha256: %.*s\n", jc[items].sha256_size,
+                            jc[items].sha256);
+                    jc[items].sha256[jc[items].sha256_size]= 0;
+                    toupper(jc[items].sha256);
+                    j += 1;
+                }
+                cp = data + t[j].start;
+                if (*cp == '{') {
+                    break;
+                }
             }
-            j += 2;
-            if (jsoneq(data, &t[j], "sha256") == 0) {
-				jc[items].sha256 = data + t[j + 1].start;
-				jc[items].sha256_size = t[j + 1].end - t[j + 1].start;
-				printf("- sha256: %.*s\n", jc[items].sha256_size,
-						jc[items].sha256);
-				jc[items].sha256[jc[items].sha256_size]= 0;
-				toupper(jc[items].sha256);
-            }
-			items++;
+            printf("-----\n");
+            items++;
         }
     }
     return items;
@@ -208,15 +239,38 @@ static unsigned long get_env_addr(const char* name)
 	return hextoul(str, NULL);
 }
 
+static tar_files files[MAX_FILES_IN_TAR];
+static jcontent jc[MAX_FILES_IN_TAR];
+
+static int flash_file(int json_index, int file_index, unsigned long file_addr, int part)
+{
+	printf("write file: %s, addr src 0x%lX, addr dst 0x%lX\n",
+			jc[json_index].path, file_addr, flash[part].addr);
+	snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /%s 0x%lX",
+			part, file_addr, jc[json_index].path, files[file_index].size);
+	printf("RUN: %s\n", cmd);
+	return run_command(cmd, 0);
+}
+
+static int flash_image(int json_index, int file_index, unsigned long file_addr, int part)
+{
+	unsigned long blkcount;
+	printf("flash image: %s, addr src 0x%lX, addr dst 0x%lX\n",
+				jc[json_index].path, file_addr, flash[part].addr);
+	blkcount = files[file_index].size / 512 + 1;
+	snprintf(cmd, sizeof(cmd), "mmc write 0x%lX 0x%lX 0x%lX",
+			file_addr, flash[part].addr / 512, blkcount);
+	printf("RUN: %s\n", cmd);
+	return run_command(cmd, 0);
+}
+
 static int update_from_file(char *filename, int mmc_new)
 {
 	int ret;
-	unsigned long filesize, blkcount;
+	unsigned long filesize;
 	unsigned long src, dst, dst_len, src_len, uncomp_size;
 	char *uncomp_data;
 	int files_count;
-	tar_files files[MAX_FILES_IN_TAR];
-	jcontent jc[MAX_FILES_IN_TAR];
 	int j_items = 0;
 	int i, j, ia, fi;
 	sha256_context ctx;
@@ -233,7 +287,7 @@ static int update_from_file(char *filename, int mmc_new)
 	filesize = get_file_size();
 	if ((0 == ret) && (filesize > 0)) {
 		printf("Update is available.\n");
-		dst = 0x6c000000; // TODO replace constant
+		dst = src + 0x7000000; // 112Mb for update
 		dst_len = 0x16000000;
 		src_len = filesize;
 
@@ -275,10 +329,11 @@ static int update_from_file(char *filename, int mmc_new)
 				if (fi < files_count) { // file found
 					file_addr = (unsigned long)uncomp_data + files[fi].offset;
 					// calculate crc
+					printf("Calculating CRC %d 0x%lX 0x%lX\n", fi, file_addr, files[fi].size);
 					sha256_starts(&ctx);
 					sha256_update(&ctx, (const uint8_t *)file_addr, files[fi].size);
 					sha256_finish(&ctx, digits);
-					printf("Calculating CRC:\n");
+					printf("CRC calculated:\n");
 					crc_p = crc_str;
 					for (i = 0; i < 32; i++) {
 						crc_p += sprintf(crc_p, "%2.2X", digits[i]);
@@ -298,44 +353,35 @@ static int update_from_file(char *filename, int mmc_new)
 							ia++;
 						}		
 						if (part_count > 0) { // Addr found
-							
 							switch (flash[dst_part[0]].type)
 							{
 							case PART_RAW:
-								printf("Update raw.\n");
-								printf("flash file: %s, addr src 0x%lX, addr dst 0x%lX\n",
-											jc[j].path, file_addr, flash[dst_part[0]].addr);
-								blkcount = files[fi].size / 512 + 1;
-								snprintf(cmd, sizeof(cmd), "mmc write 0x%lX 0x%lX 0x%lX",
-										file_addr, flash[mmc_new].addr / 512, blkcount);
-								printf("RUN: %s\n", cmd);
-								ret = run_command(cmd, 0);
+								printf("Update raw partition.\n");
+								ret = flash_image(j, fi, file_addr, dst_part[0]);
 								break;
 							case PART_EXT4:
-								printf("Update ext4.\n");
+								printf("Update ext4 partition.\n");
 								if (part_count == 2) {
 									// Redundancy update.
-									printf("flash file: %s, addr src 0x%lX, addr dst 0x%lX\n",
-											jc[j].path, file_addr, flash[mmc_new].addr);
-									snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /fit.itb 0x%lX",
-											mmc_new, file_addr, files[fi].size);
-									printf("RUN: %s\n", cmd);
-									ret = run_command(cmd, 0);
-									if (0 == ret) {
-										swap_curr_part(mmc_new);
+									if ((UPD_MODE_FILE == jc[j].mode) || (UPD_MODE_NONE == jc[j].mode)) {
+										ret = flash_file(j, fi, file_addr, mmc_new);
+										if (0 == ret) {
+											swap_curr_part(mmc_new);
+										}
+									} else if (UPD_MODE_IMAGE == jc[j].mode) {
+										ret = flash_image(j, fi, file_addr, mmc_new);
+										if (0 == ret) {
+											swap_curr_part(mmc_new);
+										}
 									}
+									// TODO copy config?
 								} else {
-									// write to addr.
-									printf("flash file: %s, addr src 0x%lX, addr dst 0x%lX\n",
-											jc[j].path, file_addr, flash[dst_part[0]].addr);
-									snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /fit.itb 0x%lX",
-											dst_part[0], file_addr, files[fi].size);
-									printf("RUN: %s\n", cmd);
-									ret = run_command(cmd, 0);
+									// Write to specific partition.
+									ret = flash_file(j, fi, file_addr, dst_part[0]);
 								}
 								break;
 							case PART_FAT:
-								printf("Update fat.\n");
+								printf("Update fat partition.\n");
 								break;
 							default:
 								printf("Unknown part type.\n");
@@ -374,7 +420,7 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	const char *p, *pv, *mmc_curr;
 	int max_wait = 10;
 	int mmc_new, cfg_part;
-	unsigned long src, dst;
+	//unsigned long src, dst;
 	struct fs_dir_stream *dir;
 	struct fs_dirent *dirent;
 
@@ -408,26 +454,29 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	// Checking if the button has been pressed.
 	if (i == max_wait) {
 		printf("Try factory restore\n");
-		src = get_env_addr("loadaddr");
-		dst = src + MAX_FILE_SIZE;
-		snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%d 0x%lX %s", FACTORY_PARTITION, src, FACTORY_IMAGE_NAME);
+		snprintf(cmd, sizeof(cmd), "run factory_boot");
 		ret = run_command(cmd, 0);
-		if (0 == ret) {
-			snprintf(cmd, sizeof(cmd), "unzip 0x%lX 0x%lX", src, dst);
-			ret = run_command(cmd, 0);
-			if (0 == ret) {
-				snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /fit.itb 0x%lX", mmc_new, dst, get_file_size());
-				ret = run_command(cmd, 0);
-				if (0 != ret) {
-					printf("restore fail, try startf - factory restore process\n");
-					return ret;
-				}
-			} else {
-				printf("unzip fail %s\n", FACTORY_IMAGE_NAME);
-			}
-		} else {
-			printf("Factory image not found\n");
-		}
+		return ret;
+		// src = get_env_addr("loadaddr");
+		// dst = src + MAX_FILE_SIZE;
+		// snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%d 0x%lX %s", FACTORY_PARTITION, src, FACTORY_IMAGE_NAME);
+		// ret = run_command(cmd, 0);
+		// if (0 == ret) {
+		// 	snprintf(cmd, sizeof(cmd), "unzip 0x%lX 0x%lX", src, dst);
+		// 	ret = run_command(cmd, 0);
+		// 	if (0 == ret) {
+		// 		snprintf(cmd, sizeof(cmd), "ext4write mmc 0:%d 0x%lX /fit.itb 0x%lX", mmc_new, dst, get_file_size());
+		// 		ret = run_command(cmd, 0);
+		// 		if (0 != ret) {
+		// 			printf("restore fail, try startf - factory restore process\n");
+		// 			return ret;
+		// 		}
+		// 	} else {
+		// 		printf("unzip fail %s\n", FACTORY_IMAGE_NAME);
+		// 	}
+		// } else {
+		// 	printf("Factory image not found\n");
+		// }
 	} else {
 		printf("Try to update.\n");
 		if (!fs_set_blk_dev("mmc", "0:8", FS_TYPE_FAT)) {
@@ -460,16 +509,18 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		}
 	}
 	// Normal boot.
-	src = 0x80000000; // TODO
-	snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%s 0x%lX /fit.itb", mmc_curr, src);
+	// src = get_env_addr("loadaddr");
+	// snprintf(cmd, sizeof(cmd), "ext4load mmc 0:%s 0x%lX /fit.itb", mmc_curr, src);
+	// ret = run_command(cmd, 0);
+	// if (0 == ret) {
+	// 	snprintf(cmd, sizeof(cmd), "bootm 0x%lX#${pcb}", src);
+	// 	ret = run_command(cmd, 0);
+	// } else {
+	// 	printf("File load failure.\n");
+	// 	swap_curr_part(mmc_new);
+	// }
+	snprintf(cmd, sizeof(cmd), "run cboot");
 	ret = run_command(cmd, 0);
-	if (0 == ret) {
-		snprintf(cmd, sizeof(cmd), "bootm 0x%lX#${pcb}", src);
-		ret = run_command(cmd, 0);
-	} else {
-		printf("File load failure.\n");
-		swap_curr_part(mmc_new);
-	}
 	return ret;
 }
 
