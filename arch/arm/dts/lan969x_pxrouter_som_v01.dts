@@ -11,7 +11,15 @@
 
   carrier-id {
     compatible = "custom,carrier-id-gpio";
-    id-gpios = <25 26 27 50 51 52 53 54>;
+//    id-gpios = <25 26 27 50 51 52 53 54>;
+    id-gpios = <&gpio  25  GPIO_ACTIVE_HIGH>,
+               <&gpio  26  GPIO_ACTIVE_HIGH>,
+               <&gpio  27  GPIO_ACTIVE_HIGH>,
+               <&gpio  50  GPIO_ACTIVE_HIGH>,
+               <&gpio  51  GPIO_ACTIVE_HIGH>,
+               <&gpio  52  GPIO_ACTIVE_HIGH>,
+               <&gpio  53  GPIO_ACTIVE_HIGH>,
+               <&gpio  54  GPIO_ACTIVE_HIGH>;
   };
 };
 

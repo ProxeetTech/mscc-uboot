@@ -7,49 +7,39 @@
 
 #define CARRIER_ID_NUM_PINS 8
 
-static int carrier_id_probe(struct udevice *dev)
-{
-	u32 pins[CARRIER_ID_NUM_PINS];
-	u8 id_val = 0;
+static int carrier_id_probe(struct udevice *dev) {
+	u8  id_val = 0;
 	char buf[4];
 	int ret, i;
 
-	ret = dev_read_u32_array(dev, "id-gpios", pins, CARRIER_ID_NUM_PINS);
-	if (ret) {
-		dev_err(dev, "Failed to read 'id-gpios': ret=%d\n", ret);
-		return ret;
-	}
-
 	for (i = 0; i < CARRIER_ID_NUM_PINS; i++) {
-		unsigned int gpio_num = pins[CARRIER_ID_NUM_PINS - i - 1];
+		struct gpio_desc gpiod;
+		int idx   = CARRIER_ID_NUM_PINS - 1 - i;
 		int value;
 
-		ret = gpio_request(gpio_num, "carrier_id_line");
-		if (ret && ret != -EBUSY) {
-			dev_err(dev, "Failed to request GPIO %u (err=%d)\n", gpio_num, ret);
+		ret = gpio_request_by_name(dev, "id-gpios", idx, &gpiod,
+								   GPIOD_IS_IN | GPIOD_PULL_UP);
+		if (ret) {
+			dev_err(dev, "id-gpios[%d] request error %d\n", idx, ret);
 			return ret;
 		}
 
-		gpio_direction_input(gpio_num);
-		value = gpio_get_value(gpio_num);
+		value = dm_gpio_get_value(&gpiod);
 		if (value < 0) {
-			dev_err(dev, "Failed to read GPIO %u (err=%d)\n", gpio_num, value);
-			if (!ret)
-				gpio_free(gpio_num);
+			dev_err(dev, "Failed to read id-gpios[%d] (err=%d)\n", idx, value);
+			dm_gpio_free(dev, &gpiod);
 			return value;
 		}
 
-		id_val <<= 1;
-        id_val |= (value & 1);
+		id_val = (id_val << 1) | (value & 1);
 
-		if (!ret)
-			gpio_free(gpio_num);
+		dm_gpio_free(dev, &gpiod);
 	}
 
 	snprintf(buf, sizeof(buf), "%u", id_val);
 	env_set("carrier_id", buf);
-
 	dev_info(dev, "Carrier ID = %u\n", id_val);
+
 	return 0;
 }
 
