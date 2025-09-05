@@ -178,6 +178,18 @@ static int parse_json(char *data, int size, jcontent* jc)
     return items;
 }
 
+static int is_valid_octal(char *str, size_t len)
+{
+    for (size_t i = 0; i < len && str[i] != '\0'; i++) {
+        if (str[i] < '0' || str[i] > '7') {
+            if (str[i] != ' ' && str[i] != '\0') {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
 static int untar(char *data, int size, tar_files *files)
 {
     size_t spare_size, file_size, file_offset, tar_offset;
@@ -190,6 +202,13 @@ static int untar(char *data, int size, tar_files *files)
         tar_offset = 0;
         while (tar_offset < (size - TARBLOCKSIZE * 2)) {
             h = (tar_header *) (data + tar_offset);
+            if (strncmp(h->magic, TMAGIC, TMAGLEN) != 0) {
+                break;
+            }
+            if (!is_valid_octal(h->size, sizeof(h->size))) {
+                printf("!is_valid_octal\n");
+                break;
+            }
             file_size = simple_strtol(h->size, NULL, 8);
             spare_size = (file_size + TARBLOCKSIZE - 1) & ~(TARBLOCKSIZE - 1);
             file_offset = tar_offset + TARBLOCKSIZE;
@@ -285,6 +304,8 @@ static int update_from_file(char *filename, int mmc_new)
 	snprintf(cmd, sizeof(cmd), "fatload mmc 0:%d 0x%lX /%s", UPDATE_PARTITION, src, filename);
 	ret = run_command(cmd, 0);
 	filesize = get_file_size();
+	// Unlink file immediately if there is a failure during the unzip process this will protect us from reboot loop.
+	fat_unlink(filename);
 	if ((0 == ret) && (filesize > 0)) {
 		printf("Update is available.\n");
 		dst = src + 0x7000000; // 112Mb for update
@@ -496,7 +517,6 @@ int do_startp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			fat_closedir(dir);
 			if (strlen(filename) > 0) {
 				ret = update_from_file(filename, mmc_new);
-				fat_unlink(filename);
 				if (0 == ret) {
 					snprintf(cmd, sizeof(cmd), "reset");
 					ret = run_command(cmd, 0);

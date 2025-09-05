@@ -39,7 +39,7 @@ typedef struct __attribute__((packed))
 #define TARBLOCKSIZE 512        /* Min tar block size */
 
 #define TMAGIC   "ustar"        /* ustar and a null */
-#define TMAGLEN  6
+#define TMAGLEN  5
 #define TVERSION "00"           /* 00 and no null */
 #define TVERSLEN 2
 
