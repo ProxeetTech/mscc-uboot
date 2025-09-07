@@ -57,7 +57,7 @@ static flash_layout flash[16] = {
 	{.module = "env.bak",        .addr =  0x10300000, .type = PART_RAW},  // 4  environment backup
 	{.module = "app.a",          .addr =  0x10500000, .type = PART_EXT4}, // 5  files: fit.itb
 	{.module = "app.b",          .addr =  0x50500000, .type = PART_EXT4}, // 6  files: fit.itb
-	{.module = "factory",        .addr =  0x90500000, .type = PART_EXT4}, // 7  files: fit.itb.gz,
+	{.module = "factory",        .addr =  0x90500000, .type = PART_EXT4}, // 7  files: fit.itb,
 																		  //           u-boot-fip.bin, u-boot-factory-fip.bin,
 																		  //           empty_ext4.img.gz, empty_fat.img.gz
 	{.module = "update",         .addr =  0xD0500000, .type = PART_FAT},  // 8  files: etc fw_001.bin
@@ -67,7 +67,7 @@ static flash_layout flash[16] = {
 };
 
 #define FACTORY_PARTITION 7
-#define FACTORY_IMAGE_NAME "/fit.itb.gz"
+// #define FACTORY_IMAGE_NAME "/fit.itb.gz"
 #define UPDATE_PARTITION 8
 #define FACTORY_PARTITION_IMAGE_NAME "factory.img.gz"
 #define MAX_FILE_SIZE 0x4000000
